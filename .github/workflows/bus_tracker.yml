@@ -1,0 +1,59 @@
+name: バス到着時刻記録（89番糸満線上り）
+
+on:
+  schedule:
+    # JST 06:00 に起動（UTC 21:00）
+    - cron: '0 21 * * 0-4'
+
+  workflow_dispatch:
+    inputs:
+      ignore_time_check:
+        description: '時間帯チェックを無視して即座に実行する（テスト用）'
+        type: boolean
+        default: true
+
+concurrency:
+  group: bus-tracker
+  cancel-in-progress: false
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+
+    # 06:00〜09:00を十分カバー
+    timeout-minutes: 190
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: ライブラリインストール
+        run: pip install requests
+
+      - name: バス到着記録を実行
+        run: python -u bus_tracker_final.py
+        env:
+          TZ: Asia/Tokyo
+          IGNORE_TIME_CHECK: ${{ inputs.ignore_time_check && '1' || '0' }}
+          DEBUG_STATETABLE: "0"
+
+      - name: CSVをリポジトリにコミット
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main || true
+          git add bus_arrival_log.csv bus_live_position.json || true
+          git diff --staged --quiet || \
+            git commit -m "🚌 バス到着記録 $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')"
+          git push || true
