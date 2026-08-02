@@ -40,8 +40,9 @@ jobs:
       - name: ライブラリインストール
         run: pip install requests
 
-      - name: バス到着記録を実行
-        run: python -u bus_tracker_final.py
+      - name: Run tracker
+        run: |
+          python -u scripts/tracker/bus_tracker.py
         env:
           TZ: Asia/Tokyo
           IGNORE_TIME_CHECK: ${{ inputs.ignore_time_check && '1' || '0' }}
